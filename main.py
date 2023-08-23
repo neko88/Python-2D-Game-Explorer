@@ -19,6 +19,7 @@ window = pygame.display.set_mode((WIDTH, HEIGHT))
 ## 7. Create a draft block for our player
 class Player(pygame.sprite.Sprite):
     COLOUR = (255, 0, 0)
+    GRAVITY = 1
 
     def __init__(self, x, y, width, height):  ## rather than indiv. values, place them all in the rect for easy access
         self.rect = pygame.Rect(x, y, width, height)
@@ -27,8 +28,10 @@ class Player(pygame.sprite.Sprite):
         self.mask = None
         self.direction = "left"
         self.animation_count = 0
+        self.fall_count = 0 ## how long in the air for
 
-    def move(self, dx, dy):     ## displacement of rect
+    ## Displacement of the player's rect changes its (x,y) values
+    def move(self, dx, dy):
         self.rect.x += dx
         self.rect.y += dy
 
@@ -44,9 +47,16 @@ class Player(pygame.sprite.Sprite):
             self.direction = "right"
             self.animation_count = 0
 
-    ## called 1/frame to move player with anim updates.
+    def fall(self, fps):
+        self.y_vel += min( 1, (self.fall_count/fps) * self.GRAVITY)
+        self.fall_count += 1
+
+    ## called 1/frame to MOVE player with anim updates.
     def loop(self, fps):
+        self.fall(fps)
         self.move(self.x_vel, self.y_vel)
+
+
 
     ## visual for the player movement
     def draw(self, window):
@@ -80,6 +90,15 @@ def draw(window, background, bg_img, player):
 
         pygame.display.update()
 
+# 9. Create method to handle movement from keypress
+def handle_move(player):
+    keys = pygame.key.get_pressed() ## gets keys being pressed
+
+    player.x_vel = 0        ## movement for holding key
+    if keys[pygame.K_LEFT]:
+        player.move_left(PLAYER_VEL)
+    if keys[pygame.K_RIGHT]:
+        player.move_right(PLAYER_VEL)
 
 ## 2. Define the main method and pass window
 def main(window):
@@ -100,6 +119,10 @@ def main(window):
             if event.type == pygame.QUIT:
                 run = False
                 break
+
+        player.loop(FPS)
+        handle_move(player)
+
         ## 6. write the execution for draw method
         draw(window, background, bg_img, player)
     pygame.quit()
