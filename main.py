@@ -58,6 +58,17 @@ def load_sprite_sheet(dir1, dir2, width, height, direction = False):
     return all_sprites
 
 
+## 16. Create a function to load block
+## return the blitted image on the specified location (0,0)
+def load_block(sprite_x, sprite_y, width, height):
+    path = join("assets", "Terrain", "Terrain.png")
+    image = pygame.image.load(path).convert_alpha()
+    rect = pygame.Rect(sprite_x, sprite_y, width, height)       ## starts at pixel p
+    surface = pygame.Surface((width, height), pygame.SRCALPHA, 32)
+    surface.blit(image, (0, 0), rect)
+    return pygame.transform.scale2x(surface)
+
+
 ## 7. Create a draft block for our player
 class Player(pygame.sprite.Sprite):
     COLOUR = (255, 0, 0)
@@ -125,7 +136,7 @@ class Player(pygame.sprite.Sprite):
 
     ## called 1/frame to MOVE player with anim updates.
     def loop(self, fps):
-        self.fall(fps)
+       ## self.fall(fps)
         self.move(self.x_vel, self.y_vel)
         self.update_sprite()
 
@@ -137,12 +148,12 @@ class Player(pygame.sprite.Sprite):
 
 ## 14. Create a class Object
 class Object(pygame.sprite.Sprite):
-    def __init_(self, x, y, width, height, name=None):
+    def __init__(self, x, y, width, height, name=None):
         super().__init__()
-        self.rect = pygame.Rect(x,y, width, height)
+        self.rect = pygame.Rect(x, y, width, height)
         self.image = pygame.Surface((width, height), pygame.SRCALPHA)
         self.width = width
-        self. height = height
+        self.height = height
         self.name = name
 
     def draw(self, window):
@@ -150,6 +161,15 @@ class Object(pygame.sprite.Sprite):
 
 
 ## 15. Create a class Block which inherits from Object
+## Blocks will be size x size
+class Block(Object):
+    def __init__(self, x, y, sprite_x, sprite_y, width, height):
+        super().__init__(x, y, width, height)  ## from Object
+        self.sprite_x = sprite_x
+        self.sprite_y = sprite_y
+        block = load_block(sprite_x, sprite_y, width, height)
+        self.image.blit(block, (0, 0))
+        self.mask = pygame.mask.from_surface(self.image)
 
 
 ## 5. Creating method for background
@@ -170,12 +190,16 @@ def get_background(bg_name):
 
 
 ## 6. Define the draw method
-def draw(window, background, bg_img, player):
+def draw(window, background, bg_img, player, objects):
     for tile in background:
         ## blit() displays tile on screen -> screen.blit(image, (100, 100))
         window.blit(bg_img, tuple(tile))
         ## 8a. execute the drawing of the player in the window
         player.draw(window)
+
+        for obj in objects:
+            obj.draw(window)
+
         pygame.display.update()
 
 # 9. Create method to handle movement from keypress
@@ -194,9 +218,11 @@ def main(window):
     run = True
     ## 5. Get our background with the method created
     background, bg_img = get_background("Gray.png")
+    block_size = 96
 
     ## 8. Create a player after defining its class and some movement functions.
     player = Player( 100, 100, 50, 50)
+    blocks = [Block(0, HEIGHT - block_size, 96, 0, block_size, block_size)]
 
     ## 4. Setup for running &stopping the program
     while run:
@@ -213,7 +239,7 @@ def main(window):
         player.loop(FPS)
         handle_move(player)
         ## 6. write the execution for draw method
-        draw(window, background, bg_img, player)
+        draw(window, background, bg_img, player, blocks)
 
     pygame.quit()
     quit()
