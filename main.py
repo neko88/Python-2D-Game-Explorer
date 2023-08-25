@@ -42,7 +42,7 @@ def load_sprite_sheet(dir1, dir2, width, height, direction = False):
 
             ## where in the image to take 1 individual and blit it to the window
             rect = pygame.Rect(loc * width, 0, width, height)
-            surface.blit(sprite_sheet, (0,0), rect)  ## refers back to sprite_sheet to blit the current sprite location
+            surface.blit(sprite_sheet, (0, 0), rect)  ## refers back to sprite_sheet to blit the current sprite location
             sprites.append(pygame.transform.scale2x(surface))   ## append that individual sprite to the list
 
         ## Adding for multi-direction characters (renaming the file)
@@ -78,6 +78,7 @@ class Player(pygame.sprite.Sprite):
 
     def __init__(self, x, y, width, height):  ## rather than indiv. values, place them all in the rect for easy access
         super().__init__()
+        self.sprite = None
         self.rect = pygame.Rect(x, y, width, height)
         self.x_vel = 0  ## how fast the player moves each frame
         self.y_vel = 0
@@ -117,6 +118,17 @@ class Player(pygame.sprite.Sprite):
         self.y_vel += min(1, (self.fall_count/fps) * self.GRAVITY)
         self.fall_count += 1
 
+## 16a. Create landed function wrt vertical collision
+    def landed(self):
+        self.fall_count = 0     ## stop adding gravity
+        self.y_vel = 0      ## stop y move
+        self.jump_count = 0
+
+    def hit_head(self):
+        self.jump_count = 0
+        self.fall_count = 0
+        self.y_vel *= -1    ## reserve velocity (dec. y values to jump) -> (0,0) TLC
+
 ## 12. Create a function that updates its animation
     def update_sprite(self):
         sprite_sheet = "idle"   ## the individual anims of each sprite sheet has an 'action
@@ -136,7 +148,7 @@ class Player(pygame.sprite.Sprite):
 
     ## called 1/frame to MOVE player with anim updates.
     def loop(self, fps):
-       ## self.fall(fps)
+        self.fall(fps)
         self.move(self.x_vel, self.y_vel)
         self.update_sprite()
 
@@ -151,13 +163,18 @@ class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, name=None):
         super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
-        self.image = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.sprite = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.mask = None
         self.width = width
         self.height = height
         self.name = name
 
+    def update(self):
+        self.rect = self.sprite.get_rect(topLeft=(self.rect.x, self.rect.y))
+
     def draw(self, window):
-        window.blit(self.image, (self.rect.x, self.rect.y))
+        window.blit(self.sprite, (self.rect.x, self.rect.y))
+
 
 
 ## 15. Create a class Block which inherits from Object
@@ -168,8 +185,7 @@ class Block(Object):
         self.sprite_x = sprite_x
         self.sprite_y = sprite_y
         block = load_block(sprite_x, sprite_y, width, height)
-        self.image.blit(block, (0, 0))
-        self.mask = pygame.mask.from_surface(self.image)
+        self.sprite.blit(block, (0, 0)) ## blit block to its own image
 
 
 ## 5. Creating method for background
@@ -202,14 +218,37 @@ def draw(window, background, bg_img, player, objects):
 
         pygame.display.update()
 
+
+## 16. Create a functin to handle collisions from top/bottom on player
+def handle_vertical_collision(player, objects, dy):
+    collided_objects = []
+    player.mask = pygame.mask.from_surface(player.sprite)
+    for obj in objects:
+        obj.mask = pygame.mask.from_surface(obj.sprite)
+        if pygame.sprite.collide_mask(obj, player):      ## pygame's function to determine if player & obj collided
+            if dy > 0:
+                ## player landed on an object's top
+                player.rect.bottom = obj.rect.top       ## if moving down on window, then it collided with the top of obj -> (0,0) TLC
+                player.landed()
+                ## player jumped and hit object's bottom
+            elif dy < 0:
+                player.rect.top = obj.rect.bottom
+                player.hit_head()
+
+        collided_objects.append(obj)
+
+    return collided_objects
+
 # 9. Create method to handle movement from keypress
-def handle_move(player):
+def handle_move(player, objects):
     keys = pygame.key.get_pressed() ## gets keys being pressed
     player.x_vel = 0        ## movement for holding key
     if keys[pygame.K_LEFT]:
         player.move_left(PLAYER_VEL)
     if keys[pygame.K_RIGHT]:
         player.move_right(PLAYER_VEL)
+
+    handle_vertical_collision(player, objects, player.y_vel)
 
 ## 2. Define the main method and pass window
 def main(window):
@@ -221,8 +260,9 @@ def main(window):
     block_size = 96
 
     ## 8. Create a player after defining its class and some movement functions.
-    player = Player( 100, 100, 50, 50)
-    blocks = [Block(0, HEIGHT - block_size, 96, 0, block_size, block_size)]
+    player = Player( 100, 100,64, 64)
+    floor = [ Block(i * block_size, HEIGHT - block_size, 96, 0, block_size, block_size)
+              for i in range( -WIDTH // block_size, (WIDTH*2) // block_size ) ]
 
     ## 4. Setup for running &stopping the program
     while run:
@@ -237,9 +277,9 @@ def main(window):
                     player.jump()
 
         player.loop(FPS)
-        handle_move(player)
+        handle_move(player, floor)
         ## 6. write the execution for draw method
-        draw(window, background, bg_img, player, blocks)
+        draw(window, background, bg_img, player, floor)
 
     pygame.quit()
     quit()
