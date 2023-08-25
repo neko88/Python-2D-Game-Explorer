@@ -184,7 +184,6 @@ class Object(pygame.sprite.Sprite):
         window.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
 
-
 ## 15. Create a class Block which inherits from Object
 ## Blocks will be size x size
 ## TIP: spawn space of block sizes by x * block_size
@@ -196,6 +195,37 @@ class Block(Object):
         block = load_block(sprite_x, sprite_y, width, height)
         self.sprite.blit(block, (0, 0)) ## blit block to its own image
 
+
+## 21. Create a function for traps in the game (fire)
+class Fire(Object):
+    ANIMATION_DELAY = 3
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height)
+        self.fire = load_sprite_sheet("Traps", "Fire", width, height)
+        self.sprite = self.fire["off"][0]
+        self.mask = pygame.mask.from_surface(self.sprite)
+        self.animation_count = 0
+        self.animation_name = "off"
+
+    def on(self):
+        self.animation_name = "on"
+
+    def off(self):
+        self.animation_name = "off"
+
+    def loop(self):
+        sprites = self.fire[self.animation_name] ## the animations in fire
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY % len(sprites))
+        self.sprite = sprites[sprite_index]
+        self.animation_count += 1
+        ## update:
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.sprite)
+
+        ## To prevent the animation count from getting too large because the object is a "static" thing in the scene
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
 
 ## 5. Creating method for background
 def get_background(bg_name):
@@ -289,14 +319,17 @@ def main(window):
     block_size = 96
 
     ## 8. Create a player after defining its class and some movement functions.
-    player = Player( 100, 100,64, 64)
+    player = Player( 100, 100, 64, 64)
+    fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
+    fire.on()
     floor = [ Block(i * block_size, HEIGHT - block_size, 96, 0, block_size, block_size)
               for i in range( -WIDTH // block_size, (WIDTH*2) // block_size ) ]
 
     ## 18. Create a container of 'objects' - in includes the prev floor created before
     objects = [*floor,
                Block(0, HEIGHT - (block_size * 2), 96, 0, block_size, block_size),
-               Block(block_size * 3, HEIGHT - (block_size * 3), 96, 64, block_size, block_size)] ## multiply 2 to put higher on screen
+               Block(block_size * 3, HEIGHT - (block_size * 3), 96, 64, block_size, block_size),
+                fire] ## multiply 2 to put higher on screen
 
     offset_x = 0
     scroll_area_width = 200
@@ -314,8 +347,10 @@ def main(window):
                     player.jump()
 
         player.loop(FPS)
+        fire.loop()
         handle_move(player, objects)
         ## 6. write the execution for draw method
+        ## 17a. Add the offset_x for the drawing functions
         draw(window, background, bg_img, player, objects, offset_x)
 
         ## 17. Writing the script for scrolling backgroun as player moves
