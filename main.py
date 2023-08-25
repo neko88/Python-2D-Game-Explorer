@@ -151,7 +151,8 @@ class Player(pygame.sprite.Sprite):
         self.animation_count += 1
 
     def update(self):
-        self.rect = self.sprite.get_rect(topLeft=(self.rect.x, self.rect.y))
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.sprite)
 
     ## called 1/frame to MOVE player with anim updates.
     def loop(self, fps):
@@ -174,13 +175,10 @@ class Object(pygame.sprite.Sprite):
         super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
         self.sprite = pygame.Surface((width, height), pygame.SRCALPHA)
-        self.mask = None
+        self.mask = pygame.mask.from_surface(self.sprite)
         self.width = width
         self.height = height
         self.name = name
-
-    def update(self):
-        self.rect = self.sprite.get_rect(topLeft=(self.rect.x, self.rect.y))
 
     def draw(self, window, offset_x):
         window.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
@@ -233,9 +231,7 @@ def draw(window, background, bg_img, player, objects, offset_x):
 ## 16. Create a functin to handle collisions from top/bottom on player
 def collide_vertical(player, objects, dy):
     collided_objects = []
-    player.mask = pygame.mask.from_surface(player.sprite)
     for obj in objects:
-        obj.mask = pygame.mask.from_surface(obj.sprite)
         if pygame.sprite.collide_mask(obj, player):      ## pygame's function to determine if player & obj collided
             if dy > 0:
                 ## player landed on an object's top
@@ -254,9 +250,10 @@ def collide_vertical(player, objects, dy):
 ## Note, horizontal collisions should be checked first before vertical collision
 ## Move player by dx, check if H.Collision, if yes, move dx back.
 ## This allows checking before they accidentally 'move' into the block
+## This does not move the player on the screen
 def collide_horizontal(player, objects, dx):
     player.move(dx, 0)
-    player.update() ## update the current pos of the player
+    player.update()## update the current pos of the player
     collided_object = None
     for obj in objects:
         if pygame.sprite.collide_mask(player, obj):
@@ -271,9 +268,13 @@ def collide_horizontal(player, objects, dx):
 def handle_move(player, objects):
     keys = pygame.key.get_pressed() ## gets keys being pressed
     player.x_vel = 0        ## movement for holding key
-    if keys[pygame.K_LEFT]:
+
+    collide_left = collide_horizontal(player, objects, -PLAYER_VEL * 2) ## multiply 2 for space added btwn block and player
+    collide_right = collide_horizontal(player, objects, PLAYER_VEL * 2)
+
+    if keys[pygame.K_LEFT] and not collide_left:
         player.move_left(PLAYER_VEL)
-    if keys[pygame.K_RIGHT]:
+    if keys[pygame.K_RIGHT] and not collide_right:
         player.move_right(PLAYER_VEL)
 
     collide_vertical(player, objects, player.y_vel)
