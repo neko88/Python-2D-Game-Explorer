@@ -87,6 +87,8 @@ class Player(pygame.sprite.Sprite):
         self.animation_count = 0
         self.fall_count = 0 ## how long in the air for
         self.jump_count = 0
+        self.isHit = False
+        self.hit_count = 0
 
     ## Displacement of the player's rect changes its (x,y) values
     def move(self, dx, dy):
@@ -104,6 +106,15 @@ class Player(pygame.sprite.Sprite):
         if self.direction != "right":
             self.direction = "right"
             self.animation_count = 0
+
+## 22. Create function for player hit
+    def hit(self):
+        self.isHit = True
+        if self.isHit:
+            self.hit_count += 1
+        if self.hit_count > FPS * 2:
+            self.isHit = False
+        self.hit_count = 0
 
 ## 13b. Create function for jump
     def jump(self):
@@ -132,6 +143,8 @@ class Player(pygame.sprite.Sprite):
 ## 12. Create a function that updates its animation
     def update_sprite(self):
         sprite_sheet = "idle"   ## the individual anims of each sprite sheet has an 'action
+        if self.isHit:
+            sprite_sheet = "hit"
         if self.x_vel != 0:
             sprite_sheet = "run"
         elif self.y_vel > self.GRAVITY * 2:
@@ -158,6 +171,7 @@ class Player(pygame.sprite.Sprite):
     def loop(self, fps):
         self.fall(fps)
         self.move(self.x_vel, self.y_vel)
+
         self.update_sprite()
 
     ## scene is : scene + offset_x so...
@@ -166,7 +180,28 @@ class Player(pygame.sprite.Sprite):
     ## visual for the player movement
     def draw(self, window, offset_x):
         ## self.sprite = self.SPRITES["idle_" + self.direction][0] // example
+        self.mask = pygame.mask.from_surface(self.sprite)
         window.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
+
+
+# 9. Create method to handle movement from keypress
+def handle_move(player, objects):
+    keys = pygame.key.get_pressed() ## gets keys being pressed
+    player.x_vel = 0        ## movement for holding key
+
+    collide_left = collide_horizontal(player, objects, -PLAYER_VEL * 2) ## multiply 2 for space added btwn block and player
+    collide_right = collide_horizontal(player, objects, PLAYER_VEL * 2)
+
+    if keys[pygame.K_LEFT] and not collide_left:
+        player.move_left(PLAYER_VEL)
+    if keys[pygame.K_RIGHT] and not collide_right:
+        player.move_right(PLAYER_VEL)
+
+    vertical_collide = collide_vertical(player, objects, player.y_vel)
+    to_check = [collide_left, collide_right, *vertical_collide]
+    for obj in to_check:
+        if obj and obj.name == "fire":
+            player.hit()
 
 
 ## 14. Create a class Object
@@ -181,6 +216,7 @@ class Object(pygame.sprite.Sprite):
         self.name = name
 
     def draw(self, window, offset_x):
+        self.mask = pygame.mask.from_surface(self.sprite)
         window.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
 
@@ -204,6 +240,7 @@ class Fire(Object):
         self.fire = load_sprite_sheet("Traps", "Fire", width, height)
         self.sprite = self.fire["off"][0]
         self.mask = pygame.mask.from_surface(self.sprite)
+        self.name = "fire"
         self.animation_count = 0
         self.animation_name = "off"
 
@@ -262,6 +299,7 @@ def draw(window, background, bg_img, player, objects, offset_x):
 def collide_vertical(player, objects, dy):
     collided_objects = []
     for obj in objects:
+     ##   obj.mask = pygame.mask.from_surface(obj.sprite)
         if pygame.sprite.collide_mask(obj, player):      ## pygame's function to determine if player & obj collided
             if dy > 0:
                 ## player landed on an object's top
@@ -271,9 +309,7 @@ def collide_vertical(player, objects, dy):
             elif dy < 0:
                 player.rect.top = obj.rect.bottom
                 player.hit_head()
-
-        collided_objects.append(obj)
-
+            collided_objects.append(obj)
     return collided_objects
 
 ## 20. Create a horizontal collision function
@@ -293,21 +329,6 @@ def collide_horizontal(player, objects, dx):
     player.update()
     return collided_object
 
-
-# 9. Create method to handle movement from keypress
-def handle_move(player, objects):
-    keys = pygame.key.get_pressed() ## gets keys being pressed
-    player.x_vel = 0        ## movement for holding key
-
-    collide_left = collide_horizontal(player, objects, -PLAYER_VEL * 2) ## multiply 2 for space added btwn block and player
-    collide_right = collide_horizontal(player, objects, PLAYER_VEL * 2)
-
-    if keys[pygame.K_LEFT] and not collide_left:
-        player.move_left(PLAYER_VEL)
-    if keys[pygame.K_RIGHT] and not collide_right:
-        player.move_right(PLAYER_VEL)
-
-    collide_vertical(player, objects, player.y_vel)
 
 ## 2. Define the main method and pass window
 def main(window):
